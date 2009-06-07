@@ -1,0 +1,147 @@
+#!/bin/bash
+#
+# usage: onemanga [-d] [-l] [-u] [-c <first chapter>[+ | -<last chapter>]] <manga name> [<manga name> ...]
+#
+
+base_url="http://www.onemanga.com"
+
+while getopts ":c:dlu" op; do
+  case $op in
+    c)
+      if [[ $LATEST -eq 1 ]]; then
+        echo "Invalid option: -c cannot be used with -l" >&2
+        exit
+      fi
+
+      if [[ $UPDATE -eq 1 ]]; then
+        echo "Invalid option: -c cannot be used with -u" >&2
+        exit
+      fi
+
+      CHAPTER=1
+      CHAPTER_ARG=$OPTARG
+      ;;
+    d)
+      USE_DIR=1
+      ;;
+    l)
+      if [[ $CHAPTER -eq 1 ]]; then
+        echo "Invalid option: -l cannot be used with -c" >&2
+        exit
+      fi
+
+      if [[ $UPDATE -eq 1 ]]; then
+        echo "Invalid option: -c cannot be used with -u" >&2
+        exit
+      fi
+
+      LATEST=1
+      ;;
+    u)
+      if [[ $CHAPTER -eq 1 ]]; then
+        echo "Invalid option: -u cannot be used with -c" >&2
+        exit
+      fi
+
+      if [[ $LATEST -eq 1 ]]; then
+        echo "Invalid option: -u cannot be used with -l" >&2
+        exit
+      fi
+
+      UPDATE=1
+      ;;
+    \?)
+      echo "Invalid option: -$OPTARG" >&2
+      exit
+      ;;
+  esac
+done
+
+shift $(($OPTIND - 1))
+
+if [[ $CHAPTER -eq 1 ]]; then
+  if [[ `expr index "$CHAPTER_ARG" ++` -gt 0 ]]; then
+    first_chapter=${CHAPTER_ARG%+*}
+    last_chapter="+"
+  elif [[ `expr index "$CHAPTER_ARG" -` -gt 0 ]]; then
+    first_chapter=${CHAPTER_ARG%-*}
+    last_chapter=${CHAPTER_ARG#*-}
+  else
+    first_chapter=${CHAPTER_ARG}
+    last_chapter=${CHAPTER_ARG}
+  fi
+fi
+
+for manga_name in "$@"; do
+  if [[ $USE_DIR -eq 1 ]]; then
+    mkdir -p ${manga_name}
+    cd ${manga_name}
+  fi
+  
+  display_name=`echo ${manga_name} | sed "s/_/ /g"`
+  word_count=`echo ${display_name} | wc -w`
+  sort_key=$((word_count + 1))
+  local_chapter=`ls ${manga_name}_*.cbr 2> /dev/null | sort -r -n -k ${sort_key} -t_ | head -n1`
+  local_chapter=`echo ${local_chapter##*_} | cut -f1 -d\.`
+
+  echo "fetching information from ${base_url}/${manga_name} ..."
+  curl -s ${base_url}/${manga_name}/ > tmp_home
+  grep "ch-subject" tmp_home | grep "a href" | cut -f3 -d\/ > tmp_chapters
+
+  latest_chapter=`head -1 tmp_chapters`
+  
+  if [[ ${local_chapter} -eq ${latest_chapter} && ! $CHAPTER -eq 1 ]]; then
+    echo "you already have the latest chapter of $display_name"
+    cd ..
+    continue
+  fi
+
+  if [[ $LATEST -eq 1 ]]; then
+    first_chapter=${latest_chapter}
+    last_chapter=${latest_chapter}
+  fi
+
+  if [[ "$last_chapter" = "+" ]]; then
+    last_chapter=${latest_chapter}
+  fi
+  
+  if [[ $UPDATE -eq 1 ]]; then
+    if [[ $local_chapter == "" ]]; then
+      first_chapter=`sort -n tmp_chapters | head -n1`
+    else
+      index=`sort -n tmp_chapters | grep -nm1 ${local_chapter} | cut -f1 -d:`
+      first_chapter=`sort -n tmp_chapters | tail -n+${index} | head -n1`
+    fi
+    
+    last_chapter=${latest_chapter}
+  fi
+
+  index=`sort -n tmp_chapters | grep -nm1 ${first_chapter} | cut -f1 -d:`
+  last_index=`sort -n tmp_chapters | grep -nm1 ${last_chapter} | cut -f1 -d:`
+
+  CHAPTERS=`sort -n tmp_chapters | awk 'FNR >= '$index' && FNR <= '$last_index`
+
+  for chapter in $CHAPTERS; do
+    echo "downloading $display_name chapter $chapter"
+    echo "getting image location ..."
+    page_location=`curl -s --range -1500 ${base_url}/${manga_name}/${chapter}/ | grep -i "begin reading" | cut -f2 -d\"`
+    curl -s ${base_url}${page_location} > tmp_page
+    PAGES=`grep -i "option value" tmp_page | grep -i -v "select manga series" | cut -f2 -d\"`
+    image_location=`grep -i "manga-page" tmp_page | cut -f4 -d\"`
+    image_location=${image_location%/*.jpg}
+
+    for page in $PAGES; do
+      echo "downloading $image_location/$page.jpg ..."
+      wget -q "$image_location/$page.jpg"
+    done
+
+    echo "creating CBR file ..."
+    cbr_file_name="${manga_name}_${chapter}.cbr"
+    /cygdrive/c/Program\ Files/WinRAR/Rar.exe a -inul ${cbr_file_name} *.jpg
+    rm *.jpg tmp_*
+  done
+
+  if [[ $USE_DIR -eq 1 ]]; then
+    cd ..
+  fi
+done
