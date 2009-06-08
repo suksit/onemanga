@@ -123,7 +123,6 @@ for manga_name in "$@"; do
 
   for chapter in $CHAPTERS; do
     echo "downloading $display_name chapter $chapter"
-    echo "getting image location ..."
     page_location=`curl -s --range -1500 ${base_url}/${manga_name}/${chapter}/ | grep -i "begin reading" | cut -f2 -d\"`
     curl -s ${base_url}${page_location} > tmp_page
     PAGES=`grep -i "option value" tmp_page | grep -i -v "select manga series" | cut -f2 -d\"`
