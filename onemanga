@@ -110,7 +110,7 @@ for manga_name in "$@"; do
       first_chapter=`sort -n tmp_chapters | head -n1`
     else
       index=`sort -n tmp_chapters | grep -nm1 ${local_chapter} | cut -f1 -d:`
-      first_chapter=`sort -n tmp_chapters | tail -n+${index} | head -n1`
+      first_chapter=`sort -n tmp_chapters | tail -n+$((index + 1)) | head -n1`
     fi
 
     last_chapter=${latest_chapter}
