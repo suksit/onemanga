@@ -77,7 +77,7 @@ for manga_name in "$@"; do
     mkdir -p ${manga_name}
     cd ${manga_name}
   fi
-  
+
   display_name=`echo ${manga_name} | sed "s/_/ /g"`
   word_count=`echo ${display_name} | wc -w`
   sort_key=$((word_count + 1))
@@ -89,7 +89,7 @@ for manga_name in "$@"; do
   grep "ch-subject" tmp_home | grep "a href" | cut -f3 -d\/ > tmp_chapters
 
   latest_chapter=`head -1 tmp_chapters`
-  
+
   if [[ ${local_chapter} -eq ${latest_chapter} && ! $CHAPTER -eq 1 ]]; then
     echo "you already have the latest chapter of $display_name"
     cd ..
@@ -104,7 +104,7 @@ for manga_name in "$@"; do
   if [[ "$last_chapter" = "+" ]]; then
     last_chapter=${latest_chapter}
   fi
-  
+
   if [[ $UPDATE -eq 1 ]]; then
     if [[ $local_chapter == "" ]]; then
       first_chapter=`sort -n tmp_chapters | head -n1`
@@ -112,7 +112,7 @@ for manga_name in "$@"; do
       index=`sort -n tmp_chapters | grep -nm1 ${local_chapter} | cut -f1 -d:`
       first_chapter=`sort -n tmp_chapters | tail -n+${index} | head -n1`
     fi
-    
+
     last_chapter=${latest_chapter}
   fi
 
@@ -136,8 +136,8 @@ for manga_name in "$@"; do
 
     echo "creating CBR file ..."
     cbr_file_name="${manga_name}_${chapter}.cbr"
-    zip ${cbr_file_name} *.jpg
-    rm *.jpg tmp_*
+    zip -mqT0 ${cbr_file_name} *.jpg
+    rm tmp_*
   done
 
   if [[ $USE_DIR -eq 1 ]]; then
