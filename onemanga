@@ -31,7 +31,7 @@ while getopts ":c:dlu" op; do
       fi
 
       if [[ $UPDATE -eq 1 ]]; then
-        echo "Invalid option: -c cannot be used with -u" >&2
+        echo "Invalid option: -l cannot be used with -u" >&2
         exit
       fi
 
