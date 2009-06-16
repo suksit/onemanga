@@ -5,6 +5,38 @@
 
 base_url="http://www.onemanga.com"
 
+function calc() {
+  echo "scale=2; $*" | bc -q 2>/dev/null | cut -f1 -d.
+}
+
+function show_progress() {
+  WIDTH=30
+
+  current=$1
+  total=$2
+
+  percent=`calc "$current/$total*100"`
+  stack=`calc "$current/$total*$WIDTH"`
+  stack=${stack:=0}
+  space=`calc "$WIDTH-$stack"`
+  
+  for i in `seq 1 $((3-${#percent}))`; do
+    echo -n " "
+  done
+  
+  echo -n "$percent% ["
+  
+  for i in `seq 1 $stack`; do
+    echo -n "#"
+  done
+  
+  for i in `seq 1 $space`; do
+    echo -n " "
+  done
+  
+  echo "]"
+}
+
 while getopts ":c:dlu" op; do
   case $op in
     c)
@@ -67,76 +99,80 @@ if [[ $CHAPTER -eq 1 ]]; then
     first_chapter=${CHAPTER_ARG%-*}
     last_chapter=${CHAPTER_ARG#*-}
   else
-    first_chapter=${CHAPTER_ARG}
-    last_chapter=${CHAPTER_ARG}
+    first_chapter=$CHAPTER_ARG
+    last_chapter=$CHAPTER_ARG
   fi
 fi
 
 for manga_name in "$@"; do
   if [[ $USE_DIR -eq 1 ]]; then
-    mkdir -p ${manga_name}
-    cd ${manga_name}
+    mkdir -p $manga_name
+    cd $manga_name
   fi
 
-  display_name=`echo ${manga_name} | sed "s/_/ /g"`
-  word_count=`echo ${display_name} | wc -w`
-  sort_key=$((word_count + 1))
-  local_chapter=`ls ${manga_name}_*.cbr 2> /dev/null | sort -r -n -k ${sort_key} -t_ | head -n1`
+  display_name=`echo $manga_name | sed "s/_/ /g"`
+  word_count=`echo $display_name | wc -w`
+  sort_key=$((word_count+1))
+  local_chapter=`ls ${manga_name}_*.cbr 2> /dev/null | sort -r -n -k $sort_key -t_ | head -n1`
   local_chapter=`echo ${local_chapter##*_} | cut -f1 -d\.`
 
-  echo "fetching information from ${base_url}/${manga_name} ..."
-  curl -s ${base_url}/${manga_name}/ > tmp_home
+  echo "fetching information from $base_url/$manga_name ..."
+  curl -s $base_url/$manga_name/ > tmp_home
   grep "ch-subject" tmp_home | grep "a href" | cut -f3 -d\/ > tmp_chapters
 
   latest_chapter=`head -1 tmp_chapters`
 
-  if [[ ${local_chapter} -eq ${latest_chapter} && ! $CHAPTER -eq 1 ]]; then
+  if [[ $local_chapter -eq $latest_chapter && ! $CHAPTER -eq 1 ]]; then
     echo "you already have the latest chapter of $display_name"
     cd ..
     continue
   fi
 
   if [[ $LATEST -eq 1 ]]; then
-    first_chapter=${latest_chapter}
-    last_chapter=${latest_chapter}
+    first_chapter=$latest_chapter
+    last_chapter=$latest_chapter
   fi
 
   if [[ "$last_chapter" = "+" ]]; then
-    last_chapter=${latest_chapter}
+    last_chapter=$latest_chapter
   fi
 
   if [[ $UPDATE -eq 1 ]]; then
     if [[ $local_chapter == "" ]]; then
       first_chapter=`sort -n tmp_chapters | head -n1`
     else
-      index=`sort -n tmp_chapters | grep -nm1 ${local_chapter} | cut -f1 -d:`
-      first_chapter=`sort -n tmp_chapters | tail -n+$((index + 1)) | head -n1`
+      index=`sort -n tmp_chapters | grep -nm1 $local_chapter | cut -f1 -d:`
+      first_chapter=`sort -n tmp_chapters | tail -n+$((index+1)) | head -n1`
     fi
 
-    last_chapter=${latest_chapter}
+    last_chapter=$latest_chapter
   fi
 
-  index=`sort -n tmp_chapters | grep -nm1 ${first_chapter} | cut -f1 -d:`
-  last_index=`sort -n tmp_chapters | grep -nm1 ${last_chapter} | cut -f1 -d:`
+  index=`sort -n tmp_chapters | grep -nm1 $first_chapter | cut -f1 -d:`
+  last_index=`sort -n tmp_chapters | grep -nm1 $last_chapter | cut -f1 -d:`
 
   CHAPTERS=`sort -n tmp_chapters | awk 'FNR >= '$index' && FNR <= '$last_index`
 
   for chapter in $CHAPTERS; do
     echo "downloading $display_name chapter $chapter"
-    page_location=`curl -s --range -1500 ${base_url}/${manga_name}/${chapter}/ | grep -i "begin reading" | cut -f2 -d\"`
-    curl -s ${base_url}${page_location} > tmp_page
+    page_location=`curl -s --range -1500 $base_url/$manga_name/$chapter/ | grep -i "begin reading" | cut -f2 -d\"`
+    curl -s $base_url$page_location > tmp_page
     PAGES=`grep -i "option value" tmp_page | grep -i -v "select manga series" | cut -f2 -d\"`
     image_location=`grep -i "manga-page" tmp_page | cut -f4 -d\"`
     image_location=${image_location%/*.jpg}
+    
+    total=`echo $PAGES | wc -w`
+    i=1
 
     for page in $PAGES; do
-      echo "downloading $image_location/$page.jpg ..."
+      echo -ne "\r\e[0K`show_progress $i $total` ($i/$total)"
       wget -q "$image_location/$page.jpg"
+      i=$((i + 1))
     done
 
-    echo "creating CBR file ..."
     cbr_file_name="${manga_name}_${chapter}.cbr"
-    zip -qT0 ${cbr_file_name} *.jpg
+    echo -ne "\ncreating ${cbr_file_name} ..."
+    zip -qT0 ${cbr_file_name} *.jpg && echo " [OK]"
     rm *.jpg tmp_*
   done
 
