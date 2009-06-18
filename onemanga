@@ -1,26 +1,29 @@
 #!/bin/bash
 #
-# usage: onemanga [-d] [-l] [-u] [-c <first chapter>[+ | -<last chapter>]] <manga name> [<manga name> ...]
+# usage: onemanga [-dlu] [-c <first chapter>[+|-<last chapter>]] <manga name> [<manga name> ...]
 #
 
 base_url="http://www.onemanga.com"
+archive_command="zip -q"
+base_dir=`pwd`
+
+trap 'rm -f *.jpg tmp_*;' 0
 
 function calc() {
   echo "scale=2; $*" | bc -q 2>/dev/null | cut -f1 -d.
 }
 
-function show_progress() {
-  WIDTH=30
-
+function progressbar() {
+  width=30
   current=$1
   total=$2
 
-  percent=`calc "$current/$total*100"`
-  stack=`calc "$current/$total*$WIDTH"`
+  percent=`calc "$current / $total * 100"`
+  stack=`calc "$current / $total * $width"`
   stack=${stack:=0}
-  space=`calc "$WIDTH-$stack"`
+  space=`calc "$width - $stack"`
   
-  for i in `seq 1 $((3-${#percent}))`; do
+  for i in `seq 1 $((3 - ${#percent}))`; do
     echo -n " "
   done
   
@@ -91,6 +94,10 @@ done
 
 shift $(($OPTIND - 1))
 
+if [[ $CHAPTER = "" && $LATEST = "" ]]; then
+  UPDATE=1
+fi
+
 if [[ $CHAPTER -eq 1 ]]; then
   if [[ `expr index "$CHAPTER_ARG" ++` -gt 0 ]]; then
     first_chapter=${CHAPTER_ARG%+*}
@@ -107,24 +114,34 @@ fi
 for manga_name in "$@"; do
   if [[ $USE_DIR -eq 1 ]]; then
     mkdir -p $manga_name
-    cd $manga_name
+    cd $base_dir/$manga_name
   fi
 
   display_name=`echo $manga_name | sed "s/_/ /g"`
   word_count=`echo $display_name | wc -w`
-  sort_key=$((word_count+1))
+  sort_key=$((word_count + 1))
   local_chapter=`ls ${manga_name}_*.cbr 2> /dev/null | sort -r -n -k $sort_key -t_ | head -n1`
   local_chapter=`echo ${local_chapter##*_} | cut -f1 -d\.`
 
-  echo "fetching information from $base_url/$manga_name ..."
+  echo -n "fetching $base_url/$manga_name..."
   curl -s $base_url/$manga_name/ > tmp_home
   grep "ch-subject" tmp_home | grep "a href" | cut -f3 -d\/ > tmp_chapters
+  
+  if [[ ! -s tmp_chapters ]]; then
+    echo -e "\b\b\b [ERROR]\nCannot get chapter list from $base_url/$manga_name"
+    exit
+  fi
+  
+  echo -e "\b\b\b [OK]"
 
   latest_chapter=`head -1 tmp_chapters`
+  
+  if [[ $LATEST -eq 1 || $UPDATE -eq 1 ]]; then
+    echo "Local chapter: $local_chapter / Latest chapter: $latest_chapter"
+  fi
 
-  if [[ $local_chapter -eq $latest_chapter && ! $CHAPTER -eq 1 ]]; then
-    echo "you already have the latest chapter of $display_name"
-    cd ..
+  if [[ ! $CHAPTER -eq 1 && $local_chapter -eq $latest_chapter ]]; then
+    echo "You already have the latest chapter of $display_name."
     continue
   fi
 
@@ -142,7 +159,7 @@ for manga_name in "$@"; do
       first_chapter=`sort -n tmp_chapters | head -n1`
     else
       index=`sort -n tmp_chapters | grep -nm1 $local_chapter | cut -f1 -d:`
-      first_chapter=`sort -n tmp_chapters | tail -n+$((index+1)) | head -n1`
+      first_chapter=`sort -n tmp_chapters | tail -n+$((index + 1)) | head -n1`
     fi
 
     last_chapter=$latest_chapter
@@ -162,21 +179,18 @@ for manga_name in "$@"; do
     image_location=${image_location%/*.jpg}
     
     total=`echo $PAGES | wc -w`
-    i=1
+    i=0
 
     for page in $PAGES; do
-      echo -ne "\r\e[0K`show_progress $i $total` ($i/$total)"
+      let i++
+      echo -ne "\r\e[0K`progressbar $i $total` ($i/$total)"
       wget -q "$image_location/$page.jpg"
-      i=$((i + 1))
     done
 
     cbr_file_name="${manga_name}_${chapter}.cbr"
-    echo -ne "\ncreating ${cbr_file_name} ..."
-    zip -qT0 ${cbr_file_name} *.jpg && echo " [OK]"
-    rm *.jpg tmp_*
-  done
 
-  if [[ $USE_DIR -eq 1 ]]; then
-    cd ..
-  fi
+    echo -ne "\r\e[0K`progressbar $i $total` (packing files...)"
+    $archive_command $cbr_file_name *.jpg && rm -f *.jpg
+    echo -ne "\r\e[0K`progressbar $i $total` ($cbr_file_name)"
+  done
 done
