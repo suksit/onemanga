@@ -3,11 +3,10 @@
 # usage: onemanga [-dlu] [-c <first chapter>[+|-<last chapter>]] <manga name> [<manga name> ...]
 #
 
-base_url="http://www.onemanga.com"
-archive_command="zip -q"
-base_dir=`pwd`
-
 trap 'rm -f *.jpg tmp_*;' 0
+
+base_url="http://www.onemanga.com"
+base_dir=`pwd`
 
 function calc() {
   echo "scale=2; $*" | bc -q 2>/dev/null | cut -f1 -d.
@@ -113,7 +112,7 @@ fi
 
 for manga_name in "$@"; do
   if [[ $USE_DIR -eq 1 ]]; then
-    mkdir -p $manga_name
+    mkdir -p $base_dir/$manga_name
     cd $base_dir/$manga_name
   fi
 
@@ -121,14 +120,14 @@ for manga_name in "$@"; do
   word_count=`echo $display_name | wc -w`
   sort_key=$((word_count + 1))
   local_chapter=`ls ${manga_name}_*.cbr 2> /dev/null | sort -r -n -k $sort_key -t_ | head -n1`
-  local_chapter=`echo ${local_chapter##*_} | cut -f1 -d\.`
+  local_chapter=`basename ${local_chapter##*_} .cbr`
 
-  echo -n "fetching $base_url/$manga_name..."
+  echo -n "opening $base_url/$manga_name..."
   curl -s $base_url/$manga_name/ > tmp_home
   grep "ch-subject" tmp_home | grep "a href" | cut -f3 -d\/ > tmp_chapters
   
   if [[ ! -s tmp_chapters ]]; then
-    echo -e "\b\b\b [ERROR]\nCannot get chapter list from $base_url/$manga_name"
+    echo -e "\b\b\b [ERROR]\ncannot create chapter list from $base_url/$manga_name"
     exit
   fi
   
@@ -137,12 +136,12 @@ for manga_name in "$@"; do
   latest_chapter=`head -1 tmp_chapters`
   
   if [[ $LATEST -eq 1 || $UPDATE -eq 1 ]]; then
-    echo "Local chapter: $local_chapter / Latest chapter: $latest_chapter"
-  fi
-
-  if [[ ! $CHAPTER -eq 1 && $local_chapter -eq $latest_chapter ]]; then
-    echo "You already have the latest chapter of $display_name."
-    continue
+    echo "local chapter: $local_chapter / latest chapter: $latest_chapter"
+    
+    if [[ $local_chapter == $latest_chapter ]]; then
+      echo "you already have the latest chapter of $display_name"
+      continue
+    fi
   fi
 
   if [[ $LATEST -eq 1 ]]; then
@@ -150,7 +149,8 @@ for manga_name in "$@"; do
     last_chapter=$latest_chapter
   fi
 
-  if [[ "$last_chapter" = "+" ]]; then
+  if [[ "$last_chapter" == "+" ]]; then
+    echo "starting chapter: $first_chapter / latest chapter: $latest_chapter"
     last_chapter=$latest_chapter
   fi
 
@@ -190,7 +190,7 @@ for manga_name in "$@"; do
     cbr_file_name="${manga_name}_${chapter}.cbr"
 
     echo -ne "\r\e[0K`progressbar $i $total` (packing files...)"
-    $archive_command $cbr_file_name *.jpg && rm -f *.jpg
-    echo -ne "\r\e[0K`progressbar $i $total` ($cbr_file_name)"
+    zip -q $cbr_file_name *.jpg && rm -f *.jpg
+    echo -e "\r\e[0K`progressbar $i $total` ($cbr_file_name)"
   done
 done
