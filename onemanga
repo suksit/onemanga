@@ -112,8 +112,8 @@ fi
 
 for manga_name in "$@"; do
   if [[ $USE_DIR -eq 1 ]]; then
-    mkdir -p $base_dir/$manga_name
-    cd $base_dir/$manga_name
+    mkdir -p "$base_dir/$manga_name"
+    cd "$base_dir/$manga_name"
   fi
 
   display_name=`echo $manga_name | sed "s/_/ /g"`
