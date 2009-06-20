@@ -12,6 +12,12 @@ function calc() {
   echo "scale=2; $*" | bc -q 2>/dev/null | cut -f1 -d.
 }
 
+function echoes() {
+  for i in `eval echo {${3:-1}..$2}`; do
+    echo -n "$1"
+  done
+}
+
 function progressbar() {
   width=20
   current=$1
@@ -21,11 +27,11 @@ function progressbar() {
   stack=`calc "$current / $total * $width"`
   stack=${stack:=0}
   space=`calc "$width - $stack"`
- 
-  for i in `seq ${#percent} 3`; do echo -n " "; done
+  
+  echoes " " ${#percent} 3
   echo -n "$percent% ["
-  for i in `seq $stack`; do echo -n "#"; done
-  for i in `seq $space`; do echo -n " "; done
+  if [[ $stack -gt 0 ]]; then echoes "#" $stack; fi
+  if [[ $space -gt 0 ]]; then echoes " " $space; fi
   echo "]"
 }
 
