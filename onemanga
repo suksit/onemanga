@@ -29,19 +29,9 @@ function progressbar() {
   echo "]"
 }
 
-while getopts ":c:dlu" op; do
+while getopts ":c:dl" op; do
   case $op in
     c)
-      if [[ $LATEST -eq 1 ]]; then
-        echo "Invalid option: -c cannot be used with -l" >&2
-        exit
-      fi
-
-      if [[ $UPDATE -eq 1 ]]; then
-        echo "Invalid option: -c cannot be used with -u" >&2
-        exit
-      fi
-
       CHAPTER=1
       CHAPTER_ARG=$OPTARG
       ;;
@@ -49,39 +39,25 @@ while getopts ":c:dlu" op; do
       USE_DIR=1
       ;;
     l)
-      if [[ $CHAPTER -eq 1 ]]; then
-        echo "Invalid option: -l cannot be used with -c" >&2
-        exit
-      fi
-
-      if [[ $UPDATE -eq 1 ]]; then
-        echo "Invalid option: -l cannot be used with -u" >&2
-        exit
-      fi
-
       LATEST=1
       ;;
-    u)
-      if [[ $CHAPTER -eq 1 ]]; then
-        echo "Invalid option: -u cannot be used with -c" >&2
-        exit
-      fi
-
-      if [[ $LATEST -eq 1 ]]; then
-        echo "Invalid option: -u cannot be used with -l" >&2
-        exit
-      fi
-
-      UPDATE=1
-      ;;
     \?)
-      echo "Invalid option: -$OPTARG" >&2
-      exit
+      echo "unknown option: -$OPTARG" >&2
+      ERROR=1
       ;;
   esac
 done
 
 shift $(($OPTIND - 1))
+
+if [[ $CHAPTER -eq 1 && $LATEST -eq 1 ]]; then
+  echo "invalid option: -c and -l cannot be used at the same time" >&2
+  ERROR=1
+fi
+
+if [[ $ERROR -eq 1 ]]; then
+  exit
+fi
 
 if [[ $CHAPTER = "" && $LATEST = "" ]]; then
   UPDATE=1
@@ -173,7 +149,7 @@ for manga_name in "$@"; do
 
   for chapter in $CHAPTERS; do
     echo "downloading $display_name chapter $chapter"
-    echo -n "initializing..."
+    echo -ne "\r\e[0K`progressbar 0 1` (initializing...)"
     page_location=`wget -qO - $base_url/$manga_name/$chapter/ | grep -i "begin reading" | cut -f2 -d\"`
     wget -qO tmp_page $base_url$page_location
     PAGES=`grep -i "option value" tmp_page | grep -i -v "select manga series" | cut -f2 -d\"`
