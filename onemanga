@@ -112,14 +112,20 @@ for manga_name in "$@"; do
   word_count=`echo $display_name | wc -w`
   sort_key=$((word_count + 1))
   local_chapter=`ls ${manga_name}_*.cbr 2> /dev/null | sort -r -n -k $sort_key -t_ | head -n1`
-  local_chapter=`basename ${local_chapter##*_} .cbr`
+  local_chapter=`basename "${local_chapter##*_}" .cbr`
 
   echo -n "opening $base_url/$manga_name..."
   wget -qN --no-cache $base_url/$manga_name/
-  grep "ch-subject" index.html | grep "a href" | cut -f3 -d\/ > tmp_chapters
+  
+  if [[ ! -f "index.html" ]]; then
+    echo -e "\b\b\b [ERROR]\nthe url seems to be invalid, or there may be a problem with your internet connection"
+    exit
+  fi
+
+  grep "ch-subject" index.html 2> /dev/null | grep "a href" | cut -f3 -d\/ > tmp_chapters
   
   if [[ ! -s tmp_chapters ]]; then
-    echo -e "\b\b\b [ERROR]\ncannot create chapter list from $base_url/$manga_name"
+    echo -e "\b\b\b [ERROR]\ncannot extract chapters info from the url"
     exit
   fi
   
@@ -127,8 +133,8 @@ for manga_name in "$@"; do
 
   latest_chapter=`head -1 tmp_chapters`
   
-  if [[ $LATEST -eq 1 || $UPDATE -eq 1 ]]; then
-    echo "local chapter: $local_chapter / latest chapter: $latest_chapter"
+  if [[ -n $local_chapter && ! $CHAPTER -eq 1 ]]; then
+    echo "local chapter: ${local_chapter} / latest chapter: $latest_chapter"
     
     if [[ $local_chapter == $latest_chapter ]]; then
       echo "you already have the latest chapter of $display_name"
@@ -142,7 +148,6 @@ for manga_name in "$@"; do
   fi
 
   if [[ "$last_chapter" == "+" ]]; then
-    echo "starting chapter: $first_chapter / latest chapter: $latest_chapter"
     last_chapter=$latest_chapter
   fi
 
@@ -155,6 +160,10 @@ for manga_name in "$@"; do
     fi
 
     last_chapter=$latest_chapter
+  fi
+  
+  if [[ $CHAPTER -eq 1 || -z $local_chapter ]]; then
+    echo "from chapter: $first_chapter / to chapter: $last_chapter"
   fi
 
   index=`sort -n tmp_chapters | grep -nm1 $first_chapter | cut -f1 -d:`
