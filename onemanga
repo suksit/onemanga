@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# usage: onemanga [-dl] [-c <first chapter>[+|-<last chapter>]] <manga name> [<manga name> ...]
+# usage: onemanga [-dl] [-c <first chapter>[+|-<last chapter>]] [-o <log file>] <manga name> [<manga name> ...]
 #
 
 trap "rm -f *.jpg tmp_*;" 0
@@ -188,7 +188,7 @@ for manga_name in "$@"; do
     if zip -q $cbr_file_name *.jpg; then
       rm -f *.jpg tmp_*
       echo -e "\r\e[0K`progressbar $i $total` ($cbr_file_name)"
-      [[ -n $log ]] && echo "[`date +%c`] $cbr_file_name" >> $log
+      [[ -n $log ]] && echo "[`date +%c`] $cbr_file_name" >> "$log"
     fi
   done
 done
