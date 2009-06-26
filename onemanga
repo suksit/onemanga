@@ -7,6 +7,7 @@ trap "rm -f *.jpg tmp_*;" 0
 
 base_url="http://www.onemanga.com"
 base_dir=`pwd`
+log="$base_dir/onemanga.log"
 
 function calc() {
   echo "scale=2; $*" | bc -q 2>/dev/null | cut -f1 -d.
@@ -35,7 +36,7 @@ function progressbar() {
   echo "]"
 }
 
-while getopts ":c:dlo:" op; do
+while getopts ":c:dlo" op; do
   case $op in
     c)
       CHAPTER=1
@@ -48,7 +49,7 @@ while getopts ":c:dlo:" op; do
       LATEST=1
       ;;
     o)
-      log="$base_dir/$OPTARG"
+      LOG_FILE=1
       ;;
     \?)
       echo "unknown option: -$OPTARG" >&2
@@ -103,7 +104,7 @@ for manga_name in "$@"; do
     local_chapter=`echo ${local_chapter} | sed "s/^0*//g"`
   fi
 
-  echo -n "opening $base_url/$manga_name..."
+  echo -ne "\nopening $base_url/$manga_name..."
   wget -qN --no-cache $base_url/$manga_name/
   
   if [[ ! -f "index.html" ]]; then
@@ -188,7 +189,7 @@ for manga_name in "$@"; do
     if zip -q $cbr_file_name *.jpg; then
       rm -f *.jpg tmp_*
       echo -e "\r\e[0K`progressbar $i $total` ($cbr_file_name)"
-      [[ -n $log ]] && echo "[`date +%c`] $cbr_file_name" >> "$log"
+      [[ $LOG_FILE -eq 1 ]] && echo "[`date +%c`] $cbr_file_name" >> "$log"
     fi
   done
 done
