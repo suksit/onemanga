@@ -92,7 +92,7 @@ for manga_name in "$@"; do
   if [[ $USE_DIR -eq 1 ]]; then
     if [[ -f "$base_dir/$manga_name" ]]; then
       echo -e "\n$manga_name [SKIPPED]"
-      echo "not directory"
+      echo "not a directory"
       continue
     fi
 
@@ -106,8 +106,12 @@ for manga_name in "$@"; do
   local_chapter=`ls ${manga_name}_*.cbr 2> /dev/null | sort -r -n -k $sort_key -t_ | head -n1`
   local_chapter=`basename "${local_chapter##*_}" .cbr`
 
-  if [[ `echo "$local_chapter == 0" | bc` -eq 0 ]]; then
-    local_chapter=`echo $local_chapter | sed "s/^0*//g"`
+  if [[ -n $local_chapter ]]; then
+    if [[ `echo "$local_chapter == 0" | bc` -eq 0 ]]; then
+      local_chapter=`echo $local_chapter | sed "s/^0*//g"`
+    fi
+  else
+    local_chapter="none"
   fi
 
   echo -ne "\nopening $base_url/$manga_name..."
