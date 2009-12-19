@@ -1,9 +1,9 @@
 #!/bin/bash
 #
-# usage: onemanga [-dlo] [-c <first chapter>[+|-<last chapter>]] <manga name> [<manga name> ...]
+# usage: onemanga [-dlos] [-c <first chapter>[+|-<last chapter>]] <manga name> [<manga name> ...]
 #
 
-trap "rm -f *.jpg tmp_*;" 0
+trap cleanup 0
 
 base_url="http://www.onemanga.com"
 search_url="$base_url/directory"
@@ -39,6 +39,10 @@ function progressbar() {
   echo "]"
 }
 
+function cleanup() {
+  rm -f *.jpg tmp_*
+}
+
 while getopts ":c:dlos:" op; do
   case $op in
     c)
@@ -60,7 +64,18 @@ while getopts ":c:dlos:" op; do
       ;;
     \?)
       echo "unknown option: -$OPTARG" >&2
-      ERROR=1
+      exit 1
+      ;;
+    :)
+      case $OPTARG in
+        c)
+          echo "please specify a chapter number"
+          ;;
+        s)
+          echo "please specify a search keyword"
+          ;;
+      esac
+      exit 1
       ;;
   esac
 done
@@ -69,18 +84,14 @@ shift $(($OPTIND - 1))
 
 if [[ $CHAPTER -eq 1 && $LATEST -eq 1 ]]; then
   echo "invalid option: -c and -l cannot be used at the same time" >&2
-  ERROR=1
-fi
-
-if [[ $ERROR -eq 1 ]]; then
-  exit
+  exit 1
 fi
 
 if [[ $SEARCH ]]; then
   echo -e "\nsearching $search_url...\n"
   wget -qO - "$search_url/" | grep "ch-subject" | sed -e 's@^.*href\=\"/@\(@g' -e 's@</a>.*@@g' -e 's@/.*>@\):@g' | awk -F: '{print $2 "\t" $1}' | sed "s/\&\#39\;/'/g" | grep -i "$KEYWORD" > tmp_search
-  cat tmp_search
-  echo -e "\n`cat tmp_search | wc -l` matches."
+  [[ -s tmp_search ]] && cat tmp_search && echo ""
+  echo "`cat tmp_search | wc -l` matches."
   exit
 fi
 
@@ -134,14 +145,14 @@ for manga_name in "$@"; do
   
   if [[ ! -f "index.html" ]]; then
     echo -e "\b\b\b [ERROR]\nthe url seems to be invalid, or there may be a problem with your internet connection"
-    exit
+    exit 1
   fi
 
   grep "ch-subject" index.html 2> /dev/null | grep "a href" | cut -f3 -d\/ > tmp_chapters
   
   if [[ ! -s tmp_chapters ]]; then
     echo -e "\b\b\b [ERROR]\ncannot extract chapters info from the url"
-    exit
+    exit 1
   fi
   
   echo -e "\b\b\b [OK]"
@@ -153,6 +164,7 @@ for manga_name in "$@"; do
     
     if [[ $local_chapter == $latest_chapter ]]; then
       echo "no updates found"
+      cleanup
       continue
     fi
   fi
@@ -213,7 +225,7 @@ for manga_name in "$@"; do
 
     echo -ne "\r$CLEAREOL`progressbar $i $total` (packing files...)"
     if zip -q $cbr_file_name *.jpg; then
-      rm -f *.jpg tmp_*
+      cleanup
       echo -e "\r$CLEAREOL`progressbar $i $total` ($cbr_file_name)"
       [[ $LOG_FILE -eq 1 ]] && echo "[`date +%c`] $cbr_file_name" >> "$log"
     fi
