@@ -6,6 +6,7 @@
 trap "rm -f *.jpg tmp_*;" 0
 
 base_url="http://www.onemanga.com"
+search_url="$base_url/directory"
 base_dir=`pwd`
 log="$base_dir/onemanga.log"
 
@@ -38,7 +39,7 @@ function progressbar() {
   echo "]"
 }
 
-while getopts ":c:dlo" op; do
+while getopts ":c:dlos:" op; do
   case $op in
     c)
       CHAPTER=1
@@ -52,6 +53,10 @@ while getopts ":c:dlo" op; do
       ;;
     o)
       LOG_FILE=1
+      ;;
+    s)
+      SEARCH=1
+      KEYWORD="$OPTARG"
       ;;
     \?)
       echo "unknown option: -$OPTARG" >&2
@@ -68,6 +73,14 @@ if [[ $CHAPTER -eq 1 && $LATEST -eq 1 ]]; then
 fi
 
 if [[ $ERROR -eq 1 ]]; then
+  exit
+fi
+
+if [[ $SEARCH ]]; then
+  echo -e "\nsearching $search_url...\n"
+  wget -qO - "$search_url/" | grep "ch-subject" | sed -e 's@^.*href\=\"/@\(@g' -e 's@</a>.*@@g' -e 's@/.*>@\):@g' | awk -F: '{print $2 "\t" $1}' | sed "s/\&\#39\;/'/g" | grep -i "$KEYWORD" > tmp_search
+  cat tmp_search
+  echo -e "\n`cat tmp_search | wc -l` matches."
   exit
 fi
 
@@ -102,7 +115,7 @@ for manga_name in "$@"; do
     cd "$base_dir/$manga_name"
   fi
 
-  display_name=`echo $manga_name | sed "s/_/ /g"`
+  display_name=`echo $manga_name | sed -e "s/_/ /g" -e "s/%27/'/g"`
   word_count=`echo $display_name | wc -w`
   sort_key=$((word_count + 1))
   local_chapter=`ls ${manga_name}_*.cbr 2> /dev/null | sort -r -n -k $sort_key -t_ | head -n1`
