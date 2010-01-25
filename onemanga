@@ -202,8 +202,8 @@ for manga_name in "$@"; do
     echo "downloading $display_name chapter $chapter"
     echo -ne "\r$CLEAREOL`progressbar 0 1` (initializing...)"
     page_location=`wget -qO - $base_url/$manga_name/$chapter/ | grep -i "begin reading" | cut -f2 -d\"`
-    wget -qO tmp_page $base_url$page_location
-    PAGES=`grep -i "option value" tmp_page | grep -i -v "select manga series" | cut -f2 -d\"`
+    wget -qO - $base_url$page_location | sed '/id="id_page_select"/,/\/select/ s/\<option value=/\n\<option value=/g' > tmp_page
+    PAGES=`sed -n '/id="id_page_select"/,/\/select/ p' < tmp_page | grep -i "option value" | cut -f2 -d\"`
     image_location=`grep -i "manga-page" tmp_page | cut -f4 -d\"`
     image_location=${image_location%/*.jpg}
     
@@ -231,3 +231,4 @@ for manga_name in "$@"; do
     fi
   done
 done
+
