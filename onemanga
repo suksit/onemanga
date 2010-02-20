@@ -9,7 +9,6 @@ base_url="http://www.onemanga.com"
 search_url="$base_url/directory"
 base_dir=`pwd`
 log="$base_dir/onemanga.log"
-ext="cbz"
 
 CLEAREOL="`tput el`"
 
@@ -130,8 +129,9 @@ for manga_name in "$@"; do
   display_name=`echo $manga_name | sed -e "s/_/ /g" -e "s/%27/'/g"`
   word_count=`echo $display_name | wc -w`
   sort_key=$((word_count + 1))
-  local_chapter=`ls ${manga_name}_*.${ext} 2> /dev/null | sort -r -n -k $sort_key -t_ | head -n1`
-  local_chapter=`basename "${local_chapter##*_}" .${ext}`
+  local_chapter=`ls ${manga_name}_*.cb? 2> /dev/null | sort -r -n -k $sort_key -t_ | head -n1`
+  local_chapter=${local_chapter##*_}
+  local_chapter=${local_chapter%.*}
 
   if [[ -n $local_chapter ]]; then
     if [[ `echo "$local_chapter == 0" | bc` -eq 0 ]]; then
@@ -223,7 +223,7 @@ for manga_name in "$@"; do
       chapter=`echoes "0" ${#int_part} 2`$chapter
     fi
 
-    archive_name="${manga_name}_${chapter}.${ext}"
+    archive_name="${manga_name}_${chapter}.cbz"
 
     echo -ne "\r$CLEAREOL`progressbar $i $total` (packing files...)"
     if zip -q $archive_name *.jpg; then
