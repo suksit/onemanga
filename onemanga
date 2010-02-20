@@ -9,6 +9,7 @@ base_url="http://www.onemanga.com"
 search_url="$base_url/directory"
 base_dir=`pwd`
 log="$base_dir/onemanga.log"
+ext="cbz"
 
 CLEAREOL="`tput el`"
 
@@ -129,8 +130,8 @@ for manga_name in "$@"; do
   display_name=`echo $manga_name | sed -e "s/_/ /g" -e "s/%27/'/g"`
   word_count=`echo $display_name | wc -w`
   sort_key=$((word_count + 1))
-  local_chapter=`ls ${manga_name}_*.cbr 2> /dev/null | sort -r -n -k $sort_key -t_ | head -n1`
-  local_chapter=`basename "${local_chapter##*_}" .cbr`
+  local_chapter=`ls ${manga_name}_*.${ext} 2> /dev/null | sort -r -n -k $sort_key -t_ | head -n1`
+  local_chapter=`basename "${local_chapter##*_}" .${ext}`
 
   if [[ -n $local_chapter ]]; then
     if [[ `echo "$local_chapter == 0" | bc` -eq 0 ]]; then
@@ -222,13 +223,13 @@ for manga_name in "$@"; do
       chapter=`echoes "0" ${#int_part} 2`$chapter
     fi
 
-    cbr_file_name="${manga_name}_${chapter}.cbr"
+    archive_name="${manga_name}_${chapter}.${ext}"
 
     echo -ne "\r$CLEAREOL`progressbar $i $total` (packing files...)"
-    if zip -q $cbr_file_name *.jpg; then
+    if zip -q $archive_name *.jpg; then
       cleanup
-      echo -e "\r$CLEAREOL`progressbar $i $total` ($cbr_file_name)"
-      [[ $LOG_FILE -eq 1 ]] && echo "[`date +%c`] $cbr_file_name" >> "$log"
+      echo -e "\r$CLEAREOL`progressbar $i $total` ($archive_name)"
+      [[ $LOG_FILE -eq 1 ]] && echo "[`date +%c`] $archive_name" >> "$log"
     fi
   done
 done
