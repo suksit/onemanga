@@ -41,7 +41,7 @@ function progressbar() {
 }
 
 function cleanup() {
-  rm -f *.jpg tmp_*
+  rm -f *.jpg tmp_* index.html
 }
 
 while getopts ":c:dlos:" op; do
