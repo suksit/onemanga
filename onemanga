@@ -12,6 +12,14 @@ log="$base_dir/onemanga.log"
 
 CLEAREOL="`tput el`"
 
+R='\e[0;31m'
+G='\e[0;32m'
+Y='\e[0;33m'
+B='\e[0;34m'
+M='\e[0;35m'
+C='\e[0;36m'
+N='\e[0m'
+
 function calc() {
   echo "scale=2; $*" | bc -q 2>/dev/null | cut -f1 -d.
 }
@@ -40,7 +48,7 @@ function progressbar() {
 }
 
 function cleanup() {
-  rm -f *.jpg tmp_* index.html
+  rm -f *.jpg tmp_*
 }
 
 while getopts ":c:dlos:" op; do
@@ -118,8 +126,8 @@ for manga_name in "$@"; do
 
   if [[ $USE_DIR -eq 1 ]]; then
     if [[ -f "$base_dir/$manga_name" ]]; then
-      echo -e "\n$manga_name [SKIPPED]"
-      echo "Not a directory"
+      #echo -e "\n$manga_name ${Y}[SKIPPED]${N}"
+      #echo "Not a directory."
       continue
     fi
 
@@ -143,21 +151,21 @@ for manga_name in "$@"; do
   fi
 
   echo -ne "\nOpening $base_url/$manga_name..."
-  wget -qN --no-cache $base_url/$manga_name/
-  
-  if [[ ! -f "index.html" ]]; then
-    echo -e "\b\b\b [ERROR]\n\nPlease make sure the manga name \"${manga_name}\" is spelled correctly.\nOtherwise, there may be a problem with your internet connection."
-    exit 1
+  wget -qO tmp_index --no-cache $base_url/$manga_name/
+
+  if [[ ! -s "tmp_index" ]]; then
+    echo -e "\b\b\b ${R}[ERROR]${N}\nPlease check your internet connection."
+    exit
   fi
 
-  grep "ch-subject" index.html 2> /dev/null | grep "a href" | cut -f3 -d\/ > tmp_chapters
+  grep "ch-subject" tmp_index 2> /dev/null | grep "a href" | cut -f3 -d\/ > tmp_chapters
   
   if [[ ! -s tmp_chapters ]]; then
-    echo -e "\b\b\b [ERROR]\n\nCannot extract chapter list from the specified URL."
-    exit 1
+    echo -e "\b\b\b ${R}[ERROR]${N}\nCannot extract chapter list from the specified URL."
+    continue
   fi
   
-  echo -e "\b\b\b [OK]"
+  echo -e "\b\b\b ${G}[OK]${N}"
 
   latest_chapter=`head -1 tmp_chapters`
   
