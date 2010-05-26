@@ -5,10 +5,14 @@
 
 trap cleanup 0
 
-base_url="http://www.onemanga.com"
+MAIN_SITE="http://www.onemanga.com"
+ALT_SITE="http://www.1000manga.com"
+
+base_url="$MAIN_SITE"
 search_url="$base_url/directory"
 base_dir=`pwd`
 log="$base_dir/onemanga.log"
+cookies="$base_dir/tmp_cookies"
 
 CLEAREOL="`tput el`"
 
@@ -48,7 +52,7 @@ function progressbar() {
 }
 
 function cleanup() {
-  rm -f *.jpg tmp_*
+  rm -f *.jpg tmp_* $cookies
 }
 
 while getopts ":c:dlos:" op; do
@@ -123,6 +127,10 @@ fi
 
 for manga_name in "$@"; do
   manga_name=${manga_name%/}
+
+  # field index for onemanga.com HTML page
+  page_index=2
+  image_index=4
 
   if [[ $USE_DIR -eq 1 ]]; then
     if [[ -f "$base_dir/$manga_name" ]]; then
@@ -213,13 +221,37 @@ for manga_name in "$@"; do
   CHAPTERS=`sort -n tmp_chapters | awk 'FNR >= '$index' && FNR <= '$last_index`
 
   for chapter in $CHAPTERS; do
+    base_url="$MAIN_SITE"
+    COOKIE=""
+
     echo "Downloading $display_name chapter $chapter"
     echo -ne "\r$CLEAREOL`progressbar 0 1` (Initializing...)"
-    page_location=`wget -qO - $base_url/$manga_name/$chapter/ | grep -i "begin reading" | cut -f2 -d\"`
-    wget -qO - $base_url$page_location | sed '/id="id_page_select"/,/\/select/ s/\<option value=/\
+
+    ##
+    # BEGIN support for series that are hosted on 1000manga.com
+    ##
+    redirected=`wget -qO - $base_url/$manga_name/$chapter/ | grep -i "read this series at 1000manga.com" | wc -l`
+
+    if [[ $redirected -eq 1 ]]; then
+      echo -ne "\r$CLEAREOL`progressbar 0 1` (Redirecting to 1000manga.com...)"
+      base_url="$ALT_SITE"
+      echo -e "www.1000manga.com\tFALSE\t/\tFALSE\t0\tage_verified\t30" > $cookies
+
+      # field index for 1000manga.com HTML page
+      page_index=4
+      image_index=10
+
+      COOKIE="--load-cookies=$cookies"
+    fi
+    ##
+    # END 1000manga.com
+    ##
+
+    page_location=`wget $COOKIE -qO - $base_url/$manga_name/$chapter/ | grep -i "begin reading" | cut -f${page_index} -d\"`
+    wget $COOKIE -qO - $base_url$page_location | sed '/id="id_page_select"/,/\/select/ s/\<option value=/\
 \<option value=/g' > tmp_page
     PAGES=`sed -n '/id="id_page_select"/,/\/select/ p' < tmp_page | grep -i "option value" | cut -f2 -d\"`
-    image_location=`grep -i "manga-page" tmp_page | cut -f4 -d\"`
+    image_location=`grep -i "manga-page" tmp_page | cut -f${image_index} -d\"`
     image_location=${image_location%/*.jpg}
     
     total=`echo $PAGES | wc -w`
@@ -228,7 +260,7 @@ for manga_name in "$@"; do
     for page in $PAGES; do
       let i++
       echo -ne "\r$CLEAREOL`progressbar $i $total` ($i/$total)"
-      wget -q "$image_location/$page.jpg"
+      wget --load-cookies=$cookies -q "$image_location/$page.jpg"
     done
 
     int_part=${chapter%\.*}
