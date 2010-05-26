@@ -151,10 +151,14 @@ for manga_name in "$@"; do
   fi
 
   echo -ne "\nOpening $base_url/$manga_name..."
-  wget -qO tmp_index --no-cache $base_url/$manga_name/
+  wget -O tmp_index --no-cache $base_url/$manga_name/ 2>tmp_status
 
   if [[ ! -s "tmp_index" ]]; then
-    echo -e "\b\b\b ${R}[ERROR]${N}\nPlease check your internet connection."
+    if [[ `grep "ERROR 404: Not Found" tmp_status | wc -l` -gt 0 ]]; then
+      echo -e "\b\b\b ${R}[ERROR]${N}\nPlease make sure the manga name is correct."
+    elif [[ `grep "unable to resolve host address" tmp_status | wc -l` -gt 0 ]]; then
+      echo -e "\b\b\b ${R}[ERROR]${N}\nPlease check your internet connection."
+    fi
     exit
   fi
 
