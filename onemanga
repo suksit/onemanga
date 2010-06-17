@@ -8,8 +8,8 @@ trap cleanup 0
 MAIN_SITE="http://www.onemanga.com"
 ALT_SITE="http://www.1000manga.com"
 
-base_url="$MAIN_SITE"
-search_url="$base_url/directory"
+search_url="$MAIN_SITE/directory"
+
 base_dir=`pwd`
 log="$base_dir/onemanga.log"
 cookies="$base_dir/tmp_cookies"
@@ -126,6 +126,7 @@ if [[ $CHAPTER -eq 1 ]]; then
 fi
 
 for manga_name in "$@"; do
+  base_url="$MAIN_SITE"
   manga_name=${manga_name%/}
 
   # field index for onemanga.com HTML page
@@ -221,7 +222,6 @@ for manga_name in "$@"; do
   CHAPTERS=`sort -n tmp_chapters | awk 'FNR >= '$index' && FNR <= '$last_index`
 
   for chapter in $CHAPTERS; do
-    base_url="$MAIN_SITE"
     COOKIE=""
 
     echo "Downloading $display_name chapter $chapter"
